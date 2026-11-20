@@ -11,3 +11,30 @@ generator client {
 datasource db {
   provider = "mysql"
 }
+
+//MODELLI
+
+model Avventura {
+  id                   Int    @id @default(autoincrement())
+  titoloAvventura      String @unique
+  descrizioneAvventura String
+  sistemaGioco         String
+  status               String
+
+  episodi Episodio[] //indica che un'Avventura può avere una lista di Episodi,relazione 1:N.
+}
+
+model Episodio {
+  id                          Int       @id @default(autoincrement())
+  avventuraId                 Int
+  titoloEpisodio              String
+  riassuntoEpisodio           String
+  descrizioneCompletaEpisodio String
+  linkEpisodio                String?
+  avventura                   Avventura @relation(fields: [avventuraId], references: [id])
+
+  //avventura Avventura: rappresenta l'Avventura a cui appartiene l'Episodio.
+  //@relation(fields: [avventuraId], references: [id]): dice a Prisma che avventuraId è la chiave esterna (FK) che fa riferimento al campo id (PK) di Avventura
+
+  @@unique([avventuraId, titoloEpisodio]) //rende il titolo univoco soltanto all'interno della stessa Avventura
+}
