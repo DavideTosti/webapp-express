@@ -13,13 +13,18 @@ datasource db {
 }
 
 //MODELLI
+enum StatusAvventura {
+  COMPLETATA
+  IN_CORSO
+  CANCELLATA
+}
 
 model Avventura {
-  id                   Int    @id @default(autoincrement())
-  titoloAvventura      String @unique
-  descrizioneAvventura String
-  sistemaGioco         String
-  status               String
+  id                   Int             @id @default(autoincrement())
+  titoloAvventura      String          @unique @db.VarChar(255)
+  descrizioneAvventura String          @db.LongText
+  sistemaGioco         String          @db.VarChar(100)
+  status               StatusAvventura
 
   episodi Episodio[] //indica che un'Avventura può avere una lista di Episodi,relazione 1:N.
 }
@@ -27,10 +32,10 @@ model Avventura {
 model Episodio {
   id                          Int       @id @default(autoincrement())
   avventuraId                 Int
-  titoloEpisodio              String
-  riassuntoEpisodio           String
-  descrizioneCompletaEpisodio String
-  linkEpisodio                String?
+  titoloEpisodio              String    @db.VarChar(255)
+  riassuntoEpisodio           String    @db.Text
+  descrizioneCompletaEpisodio String    @db.LongText
+  linkEpisodio                String?   @db.VarChar(2048)
   avventura                   Avventura @relation(fields: [avventuraId], references: [id])
 
   //avventura Avventura: rappresenta l'Avventura a cui appartiene l'Episodio.
