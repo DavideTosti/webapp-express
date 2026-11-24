@@ -5,10 +5,10 @@
   "main": "server.js",
   "scripts": {
     "watch": "node --watch --env-file=.env server.js",
-    "seed": "prisma db seed",
     "generate": "prisma generate",
     "migrate": "prisma migrate dev --name",
     "reset": "prisma migrate reset",
+    "seed": "prisma db seed",
     "studio": "prisma studio"
   },
   "keywords": [],

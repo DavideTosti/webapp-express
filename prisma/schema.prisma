@@ -33,6 +33,7 @@ model Episodio {
   id                          Int       @id @default(autoincrement())
   avventuraId                 Int
   titoloEpisodio              String    @db.VarChar(255)
+  numeroEpisodio              Int       @db.TinyInt
   riassuntoEpisodio           String    @db.Text
   descrizioneCompletaEpisodio String    @db.LongText
   linkEpisodio                String?   @db.VarChar(2048)
