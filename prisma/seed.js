@@ -15,20 +15,24 @@ async function main() {
   // Valori dell'enum StatusAvventura definiti nello schema
   const stati = ["COMPLETATA", "IN_CORSO", "CANCELLATA"];
 
-  //creazione avventure
-  const titoloAvventure = faker.helpers
-    .uniqueArray(() => faker.lorem.words({ min: 1, max: 5 }), 15)
-    .map((titoloAvventura) => ({
-      titoloAvventura,
-      descrizioneAvventura: faker.lorem.paragraph(),
-      sistemaGioco: faker.helpers.arrayElement(sistemi),
-      status: faker.helpers.arrayElement(stati),
-    }));
+  //creazione di titoli univoci di avventure
+  const titoliAvventureUnivoci = faker.helpers.uniqueArray(
+    () => faker.lorem.words({ min: 1, max: 5 }),
+    15,
+  );
+
+  //Associo ad ogni titolo un descrizione, un sistema di gioco e uno stato
+  const datiAvventure = titoliAvventureUnivoci.map((titoloAvventura) => ({
+    titoloAvventura,
+    descrizioneAvventura: faker.lorem.paragraph(),
+    sistemaGioco: faker.helpers.arrayElement(sistemi),
+    status: faker.helpers.arrayElement(stati),
+  }));
 
   await prisma.avventura.deleteMany();
 
   await prisma.avventura.createMany({
-    data: titoloAvventure,
+    data: datiAvventure,
   });
 
   const avventure = await prisma.avventura.findMany();
