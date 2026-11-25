@@ -18,8 +18,8 @@ server.get("/", (req, res) => {
 server.use("/avventure", avventureRouter);
 server.use("/avventure/:avventuraId/episodi", episodiRouter);
 
-server.use(notFound);
 server.use(errorHandler);
+server.use(notFound);
 
 server.listen(port, () => {
   console.log("Server in esecuzione su http://localhost:" + port);
