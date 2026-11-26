@@ -1,6 +1,6 @@
 import express from "express";
 import prisma from "../libs/prismaClient.js";
-//middlewares
+//helpers
 import inviaErrore from "../helpers/inviaErrore.js";
 import validazioneStringa from "../helpers/validazioneStringa.js";
 import validazioneNumero from "../helpers/validazioneNumero.js";
@@ -14,6 +14,14 @@ router.get("/", async (req, res) => {
 
   if (!validazioneNumero(avventuraId)) {
     return inviaErrore(res, 400, "L'ID dell'avventura non è valido");
+  }
+
+  //controllo se l'avventura esiste nel database (AGGIUNTA)
+  const avventuraEsiste = await prisma.avventura.findUnique({
+    where: { id: avventuraId },
+  });
+  if (!avventuraEsiste) {
+    return inviaErrore(res, 404, "Avventura non trovata");
   }
 
   const listaEpisodi = await prisma.episodio.findMany({
@@ -102,6 +110,32 @@ router.post("/", async (req, res) => {
     );
   }
 
+  //validazione id avventura
+  const avventura = await prisma.avventura.findUnique({
+    where: {
+      id: avventuraId,
+    },
+  });
+
+  if (!avventura) {
+    return inviaErrore(res, 404, "Avventura non trovata");
+  }
+
+  // Verifica se esiste già un episodio con lo stesso titolo in questa avventura
+  const titoloGiaPresente = await prisma.episodio.findFirst({
+    where: {
+      avventuraId,
+      titoloEpisodio,
+    },
+  });
+  if (titoloGiaPresente) {
+    return inviaErrore(
+      res,
+      409,
+      "Esiste già un episodio con questo titolo per questa avventura",
+    );
+  }
+
   const nuovoEpisodio = await prisma.episodio.create({
     data: {
       avventuraId,
@@ -125,11 +159,34 @@ router.patch("/:id", (req, res) => {
 });
 
 //DESTROY (Destroy)
-router.delete("/:id", (req, res) => {
+router.delete("/:id", async (req, res) => {
   const avventuraId = Number(req.params.avventuraId);
   const episodioId = Number(req.params.id);
 
-  res.send("Eliminazione dell'episodio " + episodioId);
+  //validazione formato numerico intero di avventuraId ed episodioId
+  if (!validazioneNumero(avventuraId) || !validazioneNumero(episodioId)) {
+    return inviaErrore(res, 400, "L'ID non è valido");
+  }
+
+  //validazione esistenza episodio
+  const episodioEsiste = await prisma.episodio.findFirst({
+    where: {
+      id: episodioId,
+      avventuraId,
+    },
+  });
+
+  if (!episodioEsiste) {
+    return inviaErrore(res, 404, "Episodio non trovato");
+  }
+
+  await prisma.episodio.delete({
+    where: {
+      id: episodioId,
+    },
+  });
+
+  res.sendStatus(204);
 });
 
 export default router;
