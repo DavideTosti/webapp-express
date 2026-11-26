@@ -48,6 +48,18 @@ router.get("/:id", async (req, res) => {
     where: {
       id: avventuraId,
     },
+    include: {
+      episodi: {
+        select: {
+          id: true,
+          numeroEpisodio: true,
+          titoloEpisodio: true,
+        },
+        orderBy: {
+          numeroEpisodio: "asc",
+        },
+      },
+    },
   });
 
   //validazione esistenza avventura

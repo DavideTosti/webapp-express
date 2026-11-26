@@ -37,7 +37,7 @@ model Episodio {
   riassuntoEpisodio           String    @db.Text
   descrizioneCompletaEpisodio String    @db.LongText
   linkEpisodio                String?   @db.VarChar(2048)
-  avventura                   Avventura @relation(fields: [avventuraId], references: [id])
+  avventura                   Avventura @relation(fields: [avventuraId], references: [id]) //FK
 
   //avventura Avventura: rappresenta l'Avventura a cui appartiene l'Episodio.
   //@relation(fields: [avventuraId], references: [id]): dice a Prisma che avventuraId è la chiave esterna (FK) che fa riferimento al campo id (PK) di Avventura
