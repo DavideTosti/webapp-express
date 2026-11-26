@@ -4,26 +4,33 @@ import prisma from "../libs/prismaClient.js";
 const router = express.Router();
 
 //INDEX (Read)
-router.get("/", async (req, res) => {
-  const { status, sistemaGioco } = req.query;
+router.get("/", async (req, res, next) => {
+  try {
+    const { titoloAvventura, status, sistemaGioco } = req.query;
 
-  const avventure = await prisma.avventura.findMany({
-    where: {
-      ...(status && { status }),
-      ...(sistemaGioco && { sistemaGioco }),
-    },
-    select: {
-      id: true,
-      titoloAvventura: true,
-      descrizioneAvventura: true,
-      sistemaGioco: true,
-      status: true,
-    },
-    orderBy: {
-      id: "asc",
-    },
-  });
-  res.json(avventure);
+    const avventure = await prisma.avventura.findMany({
+      where: {
+        ...(titoloAvventura && {
+          titoloAvventura: { contains: titoloAvventura },
+        }),
+        ...(status && { status: status.toUpperCase() }),
+        ...(sistemaGioco && { sistemaGioco: { contains: sistemaGioco } }),
+      },
+      select: {
+        id: true,
+        titoloAvventura: true,
+        descrizioneAvventura: true,
+        sistemaGioco: true,
+        status: true,
+      },
+      orderBy: {
+        id: "asc",
+      },
+    });
+    res.json(avventure);
+  } catch (error) {
+    next(error);
+  }
 });
 
 //SHOW (Read)

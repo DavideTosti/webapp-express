@@ -1,3 +1,16 @@
 allowBuilds:
   '@prisma/engines': true
+  esbuild: true
   prisma: true
+permissions:
+  prisma:
+    skills: true
+skills:
+  dirs:
+    - .agent/skills
+    - .agents/skills
+    - .claude/skills
+    - .cursor/skills
+    - .gemini/skills
+    - .github/skills
+    - .windsurf/skills
