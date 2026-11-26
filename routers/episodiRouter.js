@@ -1,20 +1,18 @@
 import express from "express";
 import prisma from "../libs/prismaClient.js";
+//middlewares
+import inviaErrore from "../helpers/inviaErrore.js";
+import validazioneStringa from "../helpers/validazioneStringa.js";
+import validazioneNumero from "../helpers/validazioneNumero.js";
 
 const router = express.Router({ mergeParams: true }); //mergeParams: true permette di accedere ai parametri dell'URL padre
-
-const inviaErrore = (res, statusCode, errorMessage) => {
-  res.status(statusCode).json({
-    error: errorMessage,
-  });
-};
 
 //INDEX (Read)
 router.get("/", async (req, res) => {
   const avventuraId = Number(req.params.avventuraId);
   const { titoloEpisodio, numeroEpisodio } = req.query;
 
-  if (!Number.isInteger(avventuraId)) {
+  if (!validazioneNumero(avventuraId)) {
     return inviaErrore(res, 400, "L'ID dell'avventura non è valido");
   }
 
@@ -24,10 +22,9 @@ router.get("/", async (req, res) => {
       ...(titoloEpisodio && {
         titoloEpisodio: { contains: titoloEpisodio },
       }),
-      ...(numeroEpisodio &&
-        !isNaN(Number(numeroEpisodio)) && {
-          numeroEpisodio: Number(numeroEpisodio),
-        }),
+      ...(validazioneNumero(numeroEpisodio) && {
+        numeroEpisodio: Number(numeroEpisodio),
+      }),
     },
     select: {
       id: true,
@@ -48,7 +45,7 @@ router.get("/:id", async (req, res) => {
   const episodioId = Number(req.params.id);
 
   //validazione formato numerico intero
-  if (!Number.isInteger(avventuraId) || !Number.isInteger(episodioId)) {
+  if (!validazioneNumero(avventuraId) || !validazioneNumero(episodioId)) {
     return inviaErrore(res, 400, "L'ID non è valido");
   }
 
@@ -76,11 +73,47 @@ router.get("/:id", async (req, res) => {
 });
 
 //STORE (Create)
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   const avventuraId = Number(req.params.avventuraId);
-  const episodioBody = req.body;
 
-  res.send("Creazione di un episodio per l'avventura " + avventuraId);
+  if (!validazioneNumero(avventuraId)) {
+    return inviaErrore(res, 400, "L'ID dell'avventura non è valido");
+  }
+
+  const {
+    titoloEpisodio,
+    numeroEpisodio,
+    descrizioneCompletaEpisodio,
+    riassuntoEpisodio,
+    linkEpisodio,
+  } = req.body;
+
+  //validazione campi obbligatori
+  if (
+    !validazioneStringa(titoloEpisodio) ||
+    !validazioneStringa(descrizioneCompletaEpisodio) ||
+    !validazioneStringa(riassuntoEpisodio) ||
+    !validazioneNumero(numeroEpisodio)
+  ) {
+    return inviaErrore(
+      res,
+      400,
+      "I campi obbligatori non possono essere vuoti",
+    );
+  }
+
+  const nuovoEpisodio = await prisma.episodio.create({
+    data: {
+      avventuraId,
+      titoloEpisodio,
+      numeroEpisodio: Number(numeroEpisodio),
+      descrizioneCompletaEpisodio,
+      riassuntoEpisodio,
+      linkEpisodio: linkEpisodio || null,
+    },
+  });
+
+  res.status(201).json(nuovoEpisodio);
 });
 
 //UPDATE (Update)
