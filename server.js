@@ -16,7 +16,7 @@ server.get("/", (req, res) => {
 
 //Utilizza il router per gestire le richieste relative alle avventure
 server.use("/avventure", avventureRouter);
-server.use("/avventure/:avventuraId/episodi", episodiRouter);
+server.use("/avventure/:slugAvventura/episodi", episodiRouter);
 
 server.use(errorHandler);
 server.use(notFound);

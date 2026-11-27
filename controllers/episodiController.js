@@ -2,27 +2,36 @@ import prisma from "../libs/prismaClient.js";
 //helpers
 import inviaErrore from "../helpers/inviaErrore.js";
 import { trimmerStringa, trimmerNumero } from "../helpers/trimmer.js";
+import { generaSlug } from "../helpers/generaSlug.js";
+
+// Helper interno: recupera l'avventura tramite slugAvventura o risponde con errore.
+// Restituisce l'oggetto avventura (con .id) se trovata, altrimenti null (dopo aver già inviato la risposta).
+async function trovaAvventura(req, res) {
+  const slugAvventura = trimmerStringa(req.params.slugAvventura);
+  if (!slugAvventura) {
+    inviaErrore(res, 400, "Lo slug dell'avventura non è valido");
+    return null;
+  }
+  const avventura = await prisma.avventura.findUnique({
+    where: { slugAvventura },
+  });
+  if (!avventura) {
+    inviaErrore(res, 404, "Avventura non trovata");
+    return null;
+  }
+  return avventura;
+}
 
 //INDEX
 export async function episodiIndex(req, res) {
-  const avventuraId = trimmerNumero(req.params.avventuraId);
+  const avventura = await trovaAvventura(req, res);
+  if (!avventura) return;
+
   const { titoloEpisodio, numeroEpisodio } = req.query;
-
-  if (!avventuraId) {
-    return inviaErrore(res, 400, "L'ID dell'avventura non è valido");
-  }
-
-  //controllo se l'avventura esiste nel database (AGGIUNTA)
-  const avventuraEsiste = await prisma.avventura.findUnique({
-    where: { id: avventuraId },
-  });
-  if (!avventuraEsiste) {
-    return inviaErrore(res, 404, "Avventura non trovata");
-  }
 
   const listaEpisodi = await prisma.episodio.findMany({
     where: {
-      avventuraId,
+      avventuraId: avventura.id,
       ...(trimmerStringa(titoloEpisodio) && {
         titoloEpisodio: { contains: trimmerStringa(titoloEpisodio) },
       }),
@@ -33,6 +42,7 @@ export async function episodiIndex(req, res) {
     select: {
       id: true,
       titoloEpisodio: true,
+      slugEpisodio: true,
       numeroEpisodio: true,
     },
     orderBy: {
@@ -45,32 +55,33 @@ export async function episodiIndex(req, res) {
 
 //SHOW
 export async function episodiShow(req, res) {
-  const avventuraId = trimmerNumero(req.params.avventuraId);
-  const episodioId = trimmerNumero(req.params.id);
+  const avventura = await trovaAvventura(req, res);
+  if (!avventura) return;
 
-  if (!avventuraId) {
-    return inviaErrore(res, 400, "L'ID dell'avventura non è valido");
-  }
-  if (!episodioId) {
-    return inviaErrore(res, 400, "L'ID dell'episodio non è valido");
+  const slugEpisodio = trimmerStringa(req.params.slugEpisodio);
+  if (!slugEpisodio) {
+    return inviaErrore(res, 400, "Lo slug dell'episodio non è valido");
   }
 
-  const singoloEpisodio = await prisma.episodio.findFirst({
+  // findUnique con chiave composta @@unique([avventuraId, slugEpisodio])
+  const singoloEpisodio = await prisma.episodio.findUnique({
     where: {
-      id: episodioId,
-      avventuraId,
+      avventuraId_slugEpisodio: {
+        avventuraId: avventura.id,
+        slugEpisodio,
+      },
     },
     include: {
       avventura: {
         select: {
           id: true,
           titoloAvventura: true,
+          slugAvventura: true,
         },
       },
     },
   });
 
-  //validazione esistenza episodio
   if (!singoloEpisodio) {
     return inviaErrore(res, 404, "Episodio non trovato");
   }
@@ -80,11 +91,8 @@ export async function episodiShow(req, res) {
 
 //STORE
 export async function episodiStore(req, res) {
-  const avventuraId = trimmerNumero(req.params.avventuraId);
-
-  if (!avventuraId) {
-    return inviaErrore(res, 400, "L'ID dell'avventura non è valido");
-  }
+  const avventura = await trovaAvventura(req, res);
+  if (!avventura) return;
 
   const {
     titoloEpisodio,
@@ -101,32 +109,25 @@ export async function episodiStore(req, res) {
     !trimmerStringa(riassuntoEpisodio) ||
     !trimmerNumero(numeroEpisodio)
   ) {
-    return inviaErrore(
-      res,
-      400,
-      "I campi obbligatori non possono essere vuoti",
-    );
+    return inviaErrore(res, 400, "I campi obbligatori non possono essere vuoti");
   }
 
-  //validazione id avventura
-  const avventura = await prisma.avventura.findUnique({
-    where: {
-      id: avventuraId,
-    },
-  });
-
-  if (!avventura) {
-    return inviaErrore(res, 404, "Avventura non trovata");
+  const slugEpisodio = generaSlug(titoloEpisodio);
+  if (!slugEpisodio) {
+    return inviaErrore(res, 400, "Il titolo non produce uno slug valido");
   }
 
-  // Verifica se esiste già un episodio con lo stesso titolo in questa avventura
-  const titoloGiaPresente = await prisma.episodio.findFirst({
+  // Verifica collisioni di titolo O slug all'interno della stessa avventura
+  const duplicato = await prisma.episodio.findFirst({
     where: {
-      avventuraId,
-      titoloEpisodio: trimmerStringa(titoloEpisodio),
+      avventuraId: avventura.id,
+      OR: [
+        { titoloEpisodio: trimmerStringa(titoloEpisodio) },
+        { slugEpisodio },
+      ],
     },
   });
-  if (titoloGiaPresente) {
+  if (duplicato) {
     return inviaErrore(
       res,
       409,
@@ -136,8 +137,9 @@ export async function episodiStore(req, res) {
 
   const nuovoEpisodio = await prisma.episodio.create({
     data: {
-      avventuraId,
+      avventuraId: avventura.id,
       titoloEpisodio: trimmerStringa(titoloEpisodio),
+      slugEpisodio,
       numeroEpisodio: trimmerNumero(numeroEpisodio),
       descrizioneCompletaEpisodio: trimmerStringa(descrizioneCompletaEpisodio),
       riassuntoEpisodio: trimmerStringa(riassuntoEpisodio),
@@ -150,35 +152,23 @@ export async function episodiStore(req, res) {
 
 //UPDATE
 export async function episodiUpdate(req, res) {
-  const avventuraId = trimmerNumero(req.params.avventuraId);
-  const episodioId = trimmerNumero(req.params.id);
+  const avventura = await trovaAvventura(req, res);
+  if (!avventura) return;
 
-  if (!avventuraId) {
-    return inviaErrore(res, 400, "L'ID dell'avventura non è valido");
-  }
-  if (!episodioId) {
-    return inviaErrore(res, 400, "L'ID dell'episodio non è valido");
+  const slugEpisodio = trimmerStringa(req.params.slugEpisodio);
+  if (!slugEpisodio) {
+    return inviaErrore(res, 400, "Lo slug dell'episodio non è valido");
   }
 
-  //validazione esistenza avventura
-  const avventuraEsiste = await prisma.avventura.findUnique({
+  // Recupera l'episodio tramite chiave composta
+  const episodioEsiste = await prisma.episodio.findUnique({
     where: {
-      id: avventuraId,
+      avventuraId_slugEpisodio: {
+        avventuraId: avventura.id,
+        slugEpisodio,
+      },
     },
   });
-
-  if (!avventuraEsiste) {
-    return inviaErrore(res, 404, "Avventura non trovata");
-  }
-
-  //validazione esistenza episodio all'interno della specifica avventura
-  const episodioEsiste = await prisma.episodio.findFirst({
-    where: {
-      id: episodioId,
-      avventuraId,
-    },
-  });
-
   if (!episodioEsiste) {
     return inviaErrore(res, 404, "Episodio non trovato");
   }
@@ -191,16 +181,25 @@ export async function episodiUpdate(req, res) {
     linkEpisodio,
   } = req.body;
 
-  // Verifica se esiste già un episodio con lo stesso titolo in questa avventura SOLO se è stato fornito un nuovo titolo
+  // Se arriva un nuovo titolo, ricalcola lo slug e controlla collisioni
+  let nuovoSlug = undefined;
   if (trimmerStringa(titoloEpisodio)) {
-    const titoloGiaPresente = await prisma.episodio.findFirst({
+    nuovoSlug = generaSlug(titoloEpisodio);
+    if (!nuovoSlug) {
+      return inviaErrore(res, 400, "Il titolo non produce uno slug valido");
+    }
+
+    const duplicato = await prisma.episodio.findFirst({
       where: {
-        avventuraId,
-        titoloEpisodio: trimmerStringa(titoloEpisodio),
-        id: { not: episodioId }, // Non confrontarlo con se stesso
+        avventuraId: avventura.id,
+        id: { not: episodioEsiste.id }, // non confrontare con se stesso
+        OR: [
+          { titoloEpisodio: trimmerStringa(titoloEpisodio) },
+          { slugEpisodio: nuovoSlug },
+        ],
       },
     });
-    if (titoloGiaPresente) {
+    if (duplicato) {
       return inviaErrore(
         res,
         409,
@@ -211,10 +210,11 @@ export async function episodiUpdate(req, res) {
 
   const episodioAggiornato = await prisma.episodio.update({
     where: {
-      id: episodioId,
+      id: episodioEsiste.id,
     },
     data: {
       titoloEpisodio: trimmerStringa(titoloEpisodio),
+      slugEpisodio: nuovoSlug,
       numeroEpisodio: trimmerNumero(numeroEpisodio),
       descrizioneCompletaEpisodio: trimmerStringa(descrizioneCompletaEpisodio),
       riassuntoEpisodio: trimmerStringa(riassuntoEpisodio),
@@ -230,31 +230,30 @@ export async function episodiUpdate(req, res) {
 
 //DESTROY
 export async function episodiDestroy(req, res) {
-  const avventuraId = trimmerNumero(req.params.avventuraId);
-  const episodioId = trimmerNumero(req.params.id);
+  const avventura = await trovaAvventura(req, res);
+  if (!avventura) return;
 
-  if (!avventuraId) {
-    return inviaErrore(res, 400, "L'ID dell'avventura non è valido");
-  }
-  if (!episodioId) {
-    return inviaErrore(res, 400, "L'ID dell'episodio non è valido");
+  const slugEpisodio = trimmerStringa(req.params.slugEpisodio);
+  if (!slugEpisodio) {
+    return inviaErrore(res, 400, "Lo slug dell'episodio non è valido");
   }
 
-  //validazione esistenza episodio
-  const episodioEsiste = await prisma.episodio.findFirst({
+  // Recupera l'episodio tramite chiave composta
+  const episodioEsiste = await prisma.episodio.findUnique({
     where: {
-      id: episodioId,
-      avventuraId,
+      avventuraId_slugEpisodio: {
+        avventuraId: avventura.id,
+        slugEpisodio,
+      },
     },
   });
-
   if (!episodioEsiste) {
     return inviaErrore(res, 404, "Episodio non trovato");
   }
 
   await prisma.episodio.delete({
     where: {
-      id: episodioId,
+      id: episodioEsiste.id,
     },
   });
 

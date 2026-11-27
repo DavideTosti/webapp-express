@@ -14,15 +14,15 @@ const router = express.Router({ mergeParams: true }); //mergeParams: true permet
 router.get("/", episodiIndex);
 
 //SHOW (Read) - dettaglio di uno specifico episodio
-router.get("/:id", episodiShow);
+router.get("/:slugEpisodio", episodiShow);
 
 //STORE (Create) - creazione di un nuovo episodio
 router.post("/", episodiStore);
 
 //UPDATE (Update) - modifica di uno specifico episodio
-router.patch("/:id", episodiUpdate);
+router.patch("/:slugEpisodio", episodiUpdate);
 
 //DESTROY (Destroy) - eliminazione di uno specifico episodio
-router.delete("/:id", episodiDestroy);
+router.delete("/:slugEpisodio", episodiDestroy);
 
 export default router;
