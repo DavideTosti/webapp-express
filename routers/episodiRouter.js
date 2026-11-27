@@ -7,7 +7,7 @@ import validazioneNumero from "../helpers/validazioneNumero.js";
 
 const router = express.Router({ mergeParams: true }); //mergeParams: true permette di accedere ai parametri dell'URL padre
 
-//INDEX (Read)
+//INDEX (Read) - lista degli episodi
 router.get("/", async (req, res) => {
   const avventuraId = Number(req.params.avventuraId);
   const { titoloEpisodio, numeroEpisodio } = req.query;
@@ -47,7 +47,7 @@ router.get("/", async (req, res) => {
   res.json(listaEpisodi);
 });
 
-//SHOW (Read)
+//SHOW (Read) - dettaglio di uno specifico episodio
 router.get("/:id", async (req, res) => {
   const avventuraId = Number(req.params.avventuraId);
   const episodioId = Number(req.params.id);
@@ -80,7 +80,7 @@ router.get("/:id", async (req, res) => {
   res.json(singoloEpisodio);
 });
 
-//STORE (Create)
+//STORE (Create) - creazione di un nuovo episodio
 router.post("/", async (req, res) => {
   const avventuraId = Number(req.params.avventuraId);
 
@@ -125,7 +125,7 @@ router.post("/", async (req, res) => {
   const titoloGiaPresente = await prisma.episodio.findFirst({
     where: {
       avventuraId,
-      titoloEpisodio,
+      titoloEpisodio: titoloEpisodio.trim(),
     },
   });
   if (titoloGiaPresente) {
@@ -139,26 +139,110 @@ router.post("/", async (req, res) => {
   const nuovoEpisodio = await prisma.episodio.create({
     data: {
       avventuraId,
-      titoloEpisodio,
+      titoloEpisodio: titoloEpisodio.trim(),
       numeroEpisodio: Number(numeroEpisodio),
-      descrizioneCompletaEpisodio,
-      riassuntoEpisodio,
-      linkEpisodio: linkEpisodio || null,
+      descrizioneCompletaEpisodio: descrizioneCompletaEpisodio.trim(),
+      riassuntoEpisodio: riassuntoEpisodio.trim(),
+      linkEpisodio: validazioneStringa(linkEpisodio)
+        ? linkEpisodio.trim()
+        : null,
     },
   });
 
   res.status(201).json(nuovoEpisodio);
 });
 
-//UPDATE (Update)
-router.patch("/:id", (req, res) => {
+//UPDATE (Update) - modifica di uno specifico episodio
+router.patch("/:id", async (req, res) => {
   const avventuraId = Number(req.params.avventuraId);
   const episodioId = Number(req.params.id);
 
-  res.send("Modifica dell'episodio " + episodioId);
+  //validazione formato numerico intero di avventuraId ed episodioId
+  if (!validazioneNumero(avventuraId) || !validazioneNumero(episodioId)) {
+    return inviaErrore(res, 400, "L'ID non è valido");
+  }
+
+  //validazione esistenza avventura
+  const avventuraEsiste = await prisma.avventura.findUnique({
+    where: {
+      id: avventuraId,
+    },
+  });
+
+  if (!avventuraEsiste) {
+    return inviaErrore(res, 404, "Avventura non trovata");
+  }
+
+  //validazione esistenza episodio all'interno della specifica avventura
+  const episodioEsiste = await prisma.episodio.findFirst({
+    where: {
+      id: episodioId,
+      avventuraId,
+    },
+  });
+
+  if (!episodioEsiste) {
+    return inviaErrore(res, 404, "Episodio non trovato");
+  }
+
+  const {
+    titoloEpisodio,
+    numeroEpisodio,
+    riassuntoEpisodio,
+    descrizioneCompletaEpisodio,
+    linkEpisodio,
+  } = req.body;
+
+  // Verifica se esiste già un episodio con lo stesso titolo in questa avventura SOLO se è stato fornito un nuovo titolo
+  if (validazioneStringa(titoloEpisodio)) {
+    const titoloGiaPresente = await prisma.episodio.findFirst({
+      where: {
+        avventuraId,
+        titoloEpisodio: titoloEpisodio.trim(),
+        id: { not: episodioId }, // Non confrontarlo con se stesso
+      },
+    });
+    if (titoloGiaPresente) {
+      return inviaErrore(
+        res,
+        409,
+        "Esiste già un episodio con questo titolo per questa avventura",
+      );
+    }
+  }
+
+  const episodioAggiornato = await prisma.episodio.update({
+    where: {
+      id: episodioId,
+    },
+    data: {
+      titoloEpisodio: validazioneStringa(titoloEpisodio)
+        ? titoloEpisodio.trim()
+        : undefined,
+      numeroEpisodio: validazioneNumero(numeroEpisodio)
+        ? Number(numeroEpisodio)
+        : undefined,
+      descrizioneCompletaEpisodio: validazioneStringa(
+        descrizioneCompletaEpisodio,
+      )
+        ? descrizioneCompletaEpisodio.trim()
+        : undefined,
+      riassuntoEpisodio: validazioneStringa(riassuntoEpisodio)
+        ? riassuntoEpisodio.trim()
+        : undefined,
+      linkEpisodio:
+        linkEpisodio === null || linkEpisodio === ""
+          ? null // Se viene passato null o stringa vuota, cancella il link nel DB
+          : validazioneStringa(linkEpisodio)
+            ? linkEpisodio.trim() // Se c'è una stringa valida, aggiorna
+            : undefined, // Se non viene inviato (undefined), lascia invariato
+    },
+  });
+
+  res.json(episodioAggiornato);
 });
 
-//DESTROY (Destroy)
+//DESTROY (Destroy) - eliminazione di uno specifico episodio
 router.delete("/:id", async (req, res) => {
   const avventuraId = Number(req.params.avventuraId);
   const episodioId = Number(req.params.id);
