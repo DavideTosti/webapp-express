@@ -1,15 +1,14 @@
 import prisma from "../libs/prismaClient.js";
 //helpers
 import inviaErrore from "../helpers/inviaErrore.js";
-import validazioneStringa from "../helpers/validazioneStringa.js";
-import validazioneNumero from "../helpers/validazioneNumero.js";
+import { trimmerStringa, trimmerNumero } from "../helpers/trimmer.js";
 
 //INDEX
 export async function episodiIndex(req, res) {
-  const avventuraId = Number(req.params.avventuraId);
+  const avventuraId = trimmerNumero(req.params.avventuraId);
   const { titoloEpisodio, numeroEpisodio } = req.query;
 
-  if (!validazioneNumero(avventuraId)) {
+  if (!avventuraId) {
     return inviaErrore(res, 400, "L'ID dell'avventura non è valido");
   }
 
@@ -24,11 +23,11 @@ export async function episodiIndex(req, res) {
   const listaEpisodi = await prisma.episodio.findMany({
     where: {
       avventuraId,
-      ...(titoloEpisodio && {
-        titoloEpisodio: { contains: titoloEpisodio },
+      ...(trimmerStringa(titoloEpisodio) && {
+        titoloEpisodio: { contains: trimmerStringa(titoloEpisodio) },
       }),
-      ...(validazioneNumero(numeroEpisodio) && {
-        numeroEpisodio: Number(numeroEpisodio),
+      ...(trimmerNumero(numeroEpisodio) && {
+        numeroEpisodio: trimmerNumero(numeroEpisodio),
       }),
     },
     select: {
@@ -46,12 +45,14 @@ export async function episodiIndex(req, res) {
 
 //SHOW
 export async function episodiShow(req, res) {
-  const avventuraId = Number(req.params.avventuraId);
-  const episodioId = Number(req.params.id);
+  const avventuraId = trimmerNumero(req.params.avventuraId);
+  const episodioId = trimmerNumero(req.params.id);
 
-  //validazione formato numerico intero
-  if (!validazioneNumero(avventuraId) || !validazioneNumero(episodioId)) {
-    return inviaErrore(res, 400, "L'ID non è valido");
+  if (!avventuraId) {
+    return inviaErrore(res, 400, "L'ID dell'avventura non è valido");
+  }
+  if (!episodioId) {
+    return inviaErrore(res, 400, "L'ID dell'episodio non è valido");
   }
 
   const singoloEpisodio = await prisma.episodio.findFirst({
@@ -79,9 +80,9 @@ export async function episodiShow(req, res) {
 
 //STORE
 export async function episodiStore(req, res) {
-  const avventuraId = Number(req.params.avventuraId);
+  const avventuraId = trimmerNumero(req.params.avventuraId);
 
-  if (!validazioneNumero(avventuraId)) {
+  if (!avventuraId) {
     return inviaErrore(res, 400, "L'ID dell'avventura non è valido");
   }
 
@@ -95,10 +96,10 @@ export async function episodiStore(req, res) {
 
   //validazione campi obbligatori
   if (
-    !validazioneStringa(titoloEpisodio) ||
-    !validazioneStringa(descrizioneCompletaEpisodio) ||
-    !validazioneStringa(riassuntoEpisodio) ||
-    !validazioneNumero(numeroEpisodio)
+    !trimmerStringa(titoloEpisodio) ||
+    !trimmerStringa(descrizioneCompletaEpisodio) ||
+    !trimmerStringa(riassuntoEpisodio) ||
+    !trimmerNumero(numeroEpisodio)
   ) {
     return inviaErrore(
       res,
@@ -122,7 +123,7 @@ export async function episodiStore(req, res) {
   const titoloGiaPresente = await prisma.episodio.findFirst({
     where: {
       avventuraId,
-      titoloEpisodio: titoloEpisodio.trim(),
+      titoloEpisodio: trimmerStringa(titoloEpisodio),
     },
   });
   if (titoloGiaPresente) {
@@ -136,13 +137,11 @@ export async function episodiStore(req, res) {
   const nuovoEpisodio = await prisma.episodio.create({
     data: {
       avventuraId,
-      titoloEpisodio: titoloEpisodio.trim(),
-      numeroEpisodio: Number(numeroEpisodio),
-      descrizioneCompletaEpisodio: descrizioneCompletaEpisodio.trim(),
-      riassuntoEpisodio: riassuntoEpisodio.trim(),
-      linkEpisodio: validazioneStringa(linkEpisodio)
-        ? linkEpisodio.trim()
-        : null,
+      titoloEpisodio: trimmerStringa(titoloEpisodio),
+      numeroEpisodio: trimmerNumero(numeroEpisodio),
+      descrizioneCompletaEpisodio: trimmerStringa(descrizioneCompletaEpisodio),
+      riassuntoEpisodio: trimmerStringa(riassuntoEpisodio),
+      linkEpisodio: trimmerStringa(linkEpisodio) ?? null,
     },
   });
 
@@ -151,12 +150,14 @@ export async function episodiStore(req, res) {
 
 //UPDATE
 export async function episodiUpdate(req, res) {
-  const avventuraId = Number(req.params.avventuraId);
-  const episodioId = Number(req.params.id);
+  const avventuraId = trimmerNumero(req.params.avventuraId);
+  const episodioId = trimmerNumero(req.params.id);
 
-  //validazione formato numerico intero di avventuraId ed episodioId
-  if (!validazioneNumero(avventuraId) || !validazioneNumero(episodioId)) {
-    return inviaErrore(res, 400, "L'ID non è valido");
+  if (!avventuraId) {
+    return inviaErrore(res, 400, "L'ID dell'avventura non è valido");
+  }
+  if (!episodioId) {
+    return inviaErrore(res, 400, "L'ID dell'episodio non è valido");
   }
 
   //validazione esistenza avventura
@@ -191,11 +192,11 @@ export async function episodiUpdate(req, res) {
   } = req.body;
 
   // Verifica se esiste già un episodio con lo stesso titolo in questa avventura SOLO se è stato fornito un nuovo titolo
-  if (validazioneStringa(titoloEpisodio)) {
+  if (trimmerStringa(titoloEpisodio)) {
     const titoloGiaPresente = await prisma.episodio.findFirst({
       where: {
         avventuraId,
-        titoloEpisodio: titoloEpisodio.trim(),
+        titoloEpisodio: trimmerStringa(titoloEpisodio),
         id: { not: episodioId }, // Non confrontarlo con se stesso
       },
     });
@@ -213,26 +214,14 @@ export async function episodiUpdate(req, res) {
       id: episodioId,
     },
     data: {
-      titoloEpisodio: validazioneStringa(titoloEpisodio)
-        ? titoloEpisodio.trim()
-        : undefined,
-      numeroEpisodio: validazioneNumero(numeroEpisodio)
-        ? Number(numeroEpisodio)
-        : undefined,
-      descrizioneCompletaEpisodio: validazioneStringa(
-        descrizioneCompletaEpisodio,
-      )
-        ? descrizioneCompletaEpisodio.trim()
-        : undefined,
-      riassuntoEpisodio: validazioneStringa(riassuntoEpisodio)
-        ? riassuntoEpisodio.trim()
-        : undefined,
+      titoloEpisodio: trimmerStringa(titoloEpisodio),
+      numeroEpisodio: trimmerNumero(numeroEpisodio),
+      descrizioneCompletaEpisodio: trimmerStringa(descrizioneCompletaEpisodio),
+      riassuntoEpisodio: trimmerStringa(riassuntoEpisodio),
       linkEpisodio:
         linkEpisodio === null || linkEpisodio === ""
           ? null // Se viene passato null o stringa vuota, cancella il link nel DB
-          : validazioneStringa(linkEpisodio)
-            ? linkEpisodio.trim() // Se c'è una stringa valida, aggiorna
-            : undefined, // Se non viene inviato (undefined), lascia invariato
+          : trimmerStringa(linkEpisodio),
     },
   });
 
@@ -241,12 +230,14 @@ export async function episodiUpdate(req, res) {
 
 //DESTROY
 export async function episodiDestroy(req, res) {
-  const avventuraId = Number(req.params.avventuraId);
-  const episodioId = Number(req.params.id);
+  const avventuraId = trimmerNumero(req.params.avventuraId);
+  const episodioId = trimmerNumero(req.params.id);
 
-  //validazione formato numerico intero di avventuraId ed episodioId
-  if (!validazioneNumero(avventuraId) || !validazioneNumero(episodioId)) {
-    return inviaErrore(res, 400, "L'ID non è valido");
+  if (!avventuraId) {
+    return inviaErrore(res, 400, "L'ID dell'avventura non è valido");
+  }
+  if (!episodioId) {
+    return inviaErrore(res, 400, "L'ID dell'episodio non è valido");
   }
 
   //validazione esistenza episodio
