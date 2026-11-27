@@ -22,6 +22,7 @@ export async function avventureIndex(req, res) {
     select: {
       id: true,
       titoloAvventura: true,
+      slugAvventura: true,
       descrizioneAvventura: true,
       sistemaGioco: true,
       status: true,
@@ -35,16 +36,16 @@ export async function avventureIndex(req, res) {
 
 //SHOW
 export async function avventureShow(req, res) {
-  const avventuraId = trimmerNumero(req.params.id);
+  const avventuraSlug = trimmerStringa(req.params.slugAvventura);
 
-  //validazione formato numerico intero
-  if (!Number.isInteger(avventuraId)) {
-    return inviaErrore(res, 400, "L'ID non è valido");
+  //validazione slug dell'avventura
+  if (!avventuraSlug) {
+    return inviaErrore(res, 400, "L'avventura non è valida");
   }
 
   const singolaAvventura = await prisma.avventura.findUnique({
     where: {
-      id: avventuraId,
+      slugAvventura: avventuraSlug,
     },
     include: {
       episodi: {
@@ -52,6 +53,7 @@ export async function avventureShow(req, res) {
           id: true,
           numeroEpisodio: true,
           titoloEpisodio: true,
+          slugEpisodio: true,
         },
         orderBy: {
           numeroEpisodio: "asc",

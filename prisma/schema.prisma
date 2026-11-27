@@ -22,6 +22,7 @@ enum StatusAvventura {
 model Avventura {
   id                   Int             @id @default(autoincrement())
   titoloAvventura      String          @unique @db.VarChar(255)
+  slugAvventura        String          @unique @db.VarChar(255)
   descrizioneAvventura String          @db.LongText
   sistemaGioco         String          @db.VarChar(100)
   status               StatusAvventura
@@ -33,6 +34,7 @@ model Episodio {
   id                          Int       @id @default(autoincrement())
   avventuraId                 Int
   titoloEpisodio              String    @db.VarChar(255)
+  slugEpisodio                String    @db.VarChar(255)
   numeroEpisodio              Int       @db.TinyInt
   riassuntoEpisodio           String    @db.Text
   descrizioneCompletaEpisodio String    @db.LongText
@@ -44,4 +46,5 @@ model Episodio {
   //onDelete: Cascade: se un'avventura viene cancellata, tutti i suoi episodi vengono cancellati automaticamente.
 
   @@unique([avventuraId, titoloEpisodio]) //rende il titolo univoco soltanto all'interno della stessa Avventura
+  @@unique([avventuraId, slugEpisodio]) //rende lo slug univoco soltanto all'interno della stessa Avventura
 }
