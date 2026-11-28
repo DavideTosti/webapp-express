@@ -1,7 +1,10 @@
 import express from "express";
 import {
+  avventureDestroy,
   avventureIndex,
   avventureShow,
+  avventureStore,
+  avventureUpdate,
 } from "../controllers/avventureController.js";
 
 const router = express.Router();
@@ -13,21 +16,12 @@ router.get("/", avventureIndex);
 router.get("/:slugAvventura", avventureShow);
 
 //STORE (Create)
-router.post("/", (req, res) => {
-  const avventuraBody = req.body;
-  res.send("Creazione di una nuova avventura");
-});
+router.post("/", avventureStore);
 
 //UPDATE (Update)
-router.patch("/:slugAvventura", (req, res) => {
-  const avventuraSlug = req.params.slugAvventura;
-  res.send("Modifica dell'avventura con slug " + avventuraSlug);
-});
+router.patch("/:slugAvventura", avventureUpdate);
 
 //DESTROY (Destroy)
-router.delete("/:slugAvventura", (req, res) => {
-  const avventuraSlug = req.params.slugAvventura;
-  res.send("Eliminazione dell'avventura con slug " + avventuraSlug);
-});
+router.delete("/:slugAvventura", avventureDestroy);
 
 export default router;
